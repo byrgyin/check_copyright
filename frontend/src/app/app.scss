@@ -63,9 +63,13 @@
 }
 .stats-row.stats-single{
   display: grid;
-  grid-template-columns: 200px;
+  grid-template-columns: repeat(2,242px) auto;
+  align-items: center;
   gap: 12px;
   margin-bottom: 24px;
+}
+.stats-row__button-download{
+  justify-self: flex-end;
 }
 .table-wrap{
   background: var(--surface);
@@ -73,6 +77,19 @@
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 32px;
+  padding: 15px;
+  &__list{
+    display: grid;
+    padding-left: 18px;
+    grid-gap: 10px;
+    margin: 0;
+    &-link{
+      color: var(--text);
+      &:visited{
+        color: #551b61;
+      }
+    }
+  }
   &__empty{
     text-align: center;
     padding: 60px 20px;

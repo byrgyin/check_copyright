@@ -2,48 +2,82 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { URL } from 'url';
 
-export const crawlSite = async (startUrl: string): Promise<string[]> => {
-    // Хранилище посещенных страниц и найденных картинок
+type ProgressCallback = (processedCount: number, queueLength: number) => void;
+
+const getLinksFromSitemap = async (baseUrlObj: URL): Promise<string[]> => {
+    const sitemapUrl = `${baseUrlObj.origin}/sitemap.xml`;
+    const sitemapLinks: string[] = [];
+
+    try {
+        console.log(`[Sitemap] Проверяем наличие карты сайта: ${sitemapUrl}`);
+        const { data: xml } = await axios.get(sitemapUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MyAngularCrawler/2.0)' },
+            timeout: 5000 // Таймаут 5 секунд на получение карты сайта
+        });
+
+        // Загружаем XML в cheerio с флагом xml: true для корректного парсинга XML-структуры
+        const $ = cheerio.load(xml, { xml: true });
+
+        // В sitemap.xml все адреса страниц хранятся внутри тегов <loc>
+        $('loc').each((_, element) => {
+            const url = $(element).text().trim();
+            if (url) {
+                sitemapLinks.push(url);
+            }
+        });
+
+        console.log(`[Sitemap] Успешно! Найдено страниц в карте сайта: ${sitemapLinks.length}`);
+    } catch (e) {
+        console.log(`[Sitemap] Карта сайта не найдена или недоступна. Переключаемся на рекурсивный обход.`);
+    }
+
+    return sitemapLinks;
+}
+
+
+export const crawlSite = async (startUrl: string, onProgress?: ProgressCallback): Promise<string[]> => {
     const visitedUrls = new Set<string>();
     const foundImages = new Set<string>();
 
     const startUrlObj: URL = new URL(startUrl);
     const baseDomain: string = startUrlObj.hostname;
 
-    // Очередь для обхода
-    const queue: string[] = [startUrl];
+    // ШАГ 1: Сканируем карту сайта sitemap.xml перед запуском основного цикла
+    const sitemapLinks = await getLinksFromSitemap(startUrlObj);
 
-    // Лимит одновременных запросов (потоков)
+    // Флаг, определяющий, используем ли мы карту сайта.
+    // Если ссылки в ней нашлись — значит мы работаем в режиме карты сайта, рекурсия не нужна.
+    const isSitemapMode = sitemapLinks.length > 0;
+
+    // Инициализируем очередь:
+    // Если sitemap найден — закидываем туда все ссылки из карты сайта.
+    // Если sitemap не найден — кладем в очередь только стартовый URL для рекурсивного обхода.
+    const queue: string[] = isSitemapMode ? sitemapLinks : [startUrl];
+
     const CONCURRENCY_LIMIT = 5;
 
-    // Цикл крутится до тех пор, пока в очереди есть хотя бы одна страница
+    // Главный цикл обхода очереди
     while (queue.length > 0) {
 
-        // Достаем из начала очереди пачку страниц
         const chunk = queue.splice(0, CONCURRENCY_LIMIT);
-
-        // Фильтруем, чтобы случайно не обработать дубликаты
         const urlsToProcess = chunk.filter(url => !visitedUrls.has(url));
 
         if (urlsToProcess.length === 0) continue;
 
-        // Сразу помечаем их как посещенные
         urlsToProcess.forEach(url => visitedUrls.add(url));
 
-        // Запускаем пачку запросов параллельно
         await Promise.all(urlsToProcess.map(async (currentUrl) => {
-            // Выводим в консоль, сколько страниц УЖЕ обработано на данный момент
-            console.log(`[Crawl] Страниц обработано: ${visitedUrls.size} | В очереди осталось: ${queue.length} | Текущая: ${currentUrl}`);
+            console.log(`[Crawl] Режим: ${isSitemapMode ? 'Sitemap' : 'Рекурсия'} | Обработано: ${visitedUrls.size} | В очереди: ${queue.length} | Текущая: ${currentUrl}`);
 
             try {
                 const { data: html } = await axios.get(currentUrl, {
                     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MyAngularCrawler/2.0)' },
-                    timeout: 6000 // Таймаут 6 секунд
+                    timeout: 6000
                 });
 
                 const $ = cheerio.load(html);
 
-                // 1. Сбор картинок
+                // 1. Сбор картинок (выполняется всегда, независимо от режима обхода)
                 $('img').each((_, element) => {
                     const src: string | undefined = $(element).attr('src');
                     if (src) {
@@ -54,35 +88,37 @@ export const crawlSite = async (startUrl: string): Promise<string[]> => {
                     }
                 });
 
-                // 2. Сбор ссылок для продолжения обхода
-                $('a').each((_, element) => {
-                    const href: string | undefined = $(element).attr('href');
-                    if (href) {
-                        try {
-                            const absoluteLink = new URL(href, currentUrl);
-                            absoluteLink.hash = ''; // Очищаем хэш (#about -> /about)
+                // 2. Сбор ссылок для продолжения обхода (только если sitemap.xml НЕ НАШЛАСЬ)
+                if (!isSitemapMode) {
+                    $('a').each((_, element) => {
+                        const href: string | undefined = $(element).attr('href');
+                        if (href) {
+                            try {
+                                const absoluteLink = new URL(href, currentUrl);
+                                absoluteLink.hash = '';
 
-                            if (
-                                absoluteLink.hostname === baseDomain &&
-                                !visitedUrls.has(absoluteLink.href) &&
-                                !queue.includes(absoluteLink.href) &&
-                                // Защита: игнорируем ссылки, которые содержат знаки вопроса (динамические фильтры/сортировки),
-                                // так как они могут генерировать бесконечные комбинации URL и зациклить бота
-                                !absoluteLink.search &&
-                                !absoluteLink.pathname.match(/\.(jpg|jpeg|png|gif|pdf|zip|xml|css|js)$/i)
-                            ) {
-                                queue.push(absoluteLink.href);
-                            }
-                        } catch (e) {}
-                    }
-                });
+                                if (
+                                    absoluteLink.hostname === baseDomain &&
+                                    !visitedUrls.has(absoluteLink.href) &&
+                                    !queue.includes(absoluteLink.href) &&
+                                    !absoluteLink.search &&
+                                    !absoluteLink.pathname.match(/\.(jpg|jpeg|png|gif|pdf|zip|xml|css|js)$/i)
+                                ) {
+                                    queue.push(absoluteLink.href);
+                                }
+                            } catch (e) {}
+                        }
+                    });
+                }
 
             } catch (e: any) {
                 console.error(`[Error] Ошибка на ${currentUrl}: ${e.message}`);
             }
         }));
 
-        // Пауза 300мс между пачками для стабильности
+        if (onProgress) {
+            onProgress(visitedUrls.size, queue.length);
+        }
         await new Promise(resolve => setTimeout(resolve, 300));
     }
 
