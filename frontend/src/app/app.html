@@ -1,0 +1,45 @@
+<header class="header">
+  <div class="header__logo">🔍</div>
+  <h1 class="header__title">Image Copyright Audit</h1>
+</header>
+<main class="main">
+  <div class="container">
+    <div class="start-card">
+      <h2 class="start-card__title">Start new audit</h2>
+      <p class="start-card__sub-title">Enter a client website URL. The tool will crawl all pages and collect image URLs.</p>
+      <form class="start-card__form" action="">
+        <input
+          class="start-card__input" type="url"
+          placeholder="https://client-website.com"
+        >
+        <button class="button button--primary start-card__button">Run Audit</button>
+      </form>
+    </div>
+
+    <div class="progress-card">
+      <div class="progress-header">
+        <div class="progress-site">https://simvisa.com/</div>
+        <div class="progress-status status-done">Complete</div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar"></div>
+      </div>
+    </div>
+
+    <div class="stats-row stats-single">
+      <div class="start-card stat-total">
+        <div class="start-card__label">Total images found</div>
+        <div class="start-card__value">0</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-wrap__empty">
+        <div class="table-wrap__icon">🔍</div>
+        <p>No images found.</p>
+      </div>
+    </div>
+
+  </div>
+</main>
+<router-outlet />

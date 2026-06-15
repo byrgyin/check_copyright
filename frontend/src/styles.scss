@@ -1,0 +1,44 @@
+:root {
+  --bg: #0f1117;
+  --surface: #181c27;
+  --border: #252a38;
+  --text: #e4e8f0;
+  --muted: #6b7590;
+  --accent: #4f7cff;
+  --danger: #ff4d6a;
+  --danger-bg: rgba(255, 77, 106, 0.08);
+  --safe: #34d17a;
+  --safe-bg: rgba(52, 209, 122, 0.08);
+  --unique: #f0b429;
+  --unique-bg: rgba(240, 180, 41, 0.08);
+  --radius: 8px;
+  --font: "Inter", system-ui, sans-serif;
+}
+body{
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI",SF Pro, sans-serif;
+  min-height: 100vh;
+}
+.container { max-width: 1280px; margin: 0 auto; padding: 32px; }
+.button{
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: opacity .15s, transform .1s;
+  &--primary{
+    background: var(--accent);
+    color: #fff;
+  }
+}
+.start-card{
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  margin-bottom: 32px;
+}
