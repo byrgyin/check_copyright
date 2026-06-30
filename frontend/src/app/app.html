@@ -38,15 +38,22 @@
         </div>
       </div>
     }
+    @if (isCheckingTinEye()) {
+      <div class="progress-card tineye-card">
+        <div class="progress-header">
+          <div class="progress-site">Анализ плагиата (TinEye API)</div>
+          <div class="progress-status"
+               [class.status-done]="tineyeProgressPercent() === 100">{{ tineyeStatusText() }}</div>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar tineye-bar" [style.width.%]="tineyeProgressPercent()"></div>
+        </div>
+        <div class="progress-footer">
+          {{ tineyeProgressPercent() }}%
+        </div>
+      </div>
+    }
     <div class="stats-row stats-single">
-      <div class="start-card stat-total">
-        <div class="start-card__label">Total images found</div>
-        <div class="start-card__value">{{ images().length }}</div>
-      </div>
-      <div class="start-card stat-total">
-        <div class="start-card__label">Total suspect images found</div>
-        <div class="start-card__value">{{ images().length }}</div>
-      </div>
       @if (images().length > 0) {
         <button
           class="button button--primary stats-row__button-download"
@@ -55,20 +62,35 @@
     </div>
 
     <div class="table-wrap">
-      @if (images().length > 0) {
-        <ul class="table-wrap__list">
-          @for (item of images(); track item) {
-            <li class="table-wrap__list-item">
-              <a class="table-wrap__list-link" target="_blank" [href]="item">{{ item }}</a>
-            </li>
-          }
-        </ul>
-      } @else {
-        <div class="table-wrap__empty">
-          <div class="table-wrap__icon">🔍</div>
-          <p>No images found.</p>
+      <div class="table-wrap__wrapper">
+        <div class="table-wrap__wrapper-header">
+          <ul class="table-wrap__header">
+            <li class="table-wrap__header-item">Url Image</li>
+            <li class="table-wrap__header-item">Page</li>
+            <li class="table-wrap__header-item">Class Html</li>
+          </ul>
         </div>
-      }
+        @if (images().length > 0) {
+          <ul class="table-wrap__list">
+            @for (item of images(); track item.url) {
+              <li class="table-wrap__list-item">
+                <div class="table-wrap__list-item-wrap"><a class="table-wrap__list-link" target="_blank" [href]="item.url">{{item.url}}</a></div>
+                <div class="table-wrap__list-item-wrap"><a class="table-wrap__list-link" target="_blank" [href]="item.pageUrl">{{item.pageUrl}}</a></div>
+                <div class="table-wrap__list-item-wrap"><span class="table-wrap__list-link" [class.text-muted]="item.className === 'no-class'">{{ item.className }}</span></div>
+              </li>
+            }
+          </ul>
+        } @else {
+          <div class="table-wrap__empty">
+            <div class="table-wrap__icon">🔍</div>
+            <p>No images found.</p>
+          </div>
+        }
+        <div class="table-wrap__footer">
+          <div class="table-wrap__footer-item"><span class="table-wrap__footer-label">Total images found:</span><span> {{ images().length }}</span></div>
+          <div class="table-wrap__footer-item"><span class="table-wrap__footer-label">Total suspect images found:</span><span> {{ suspectImagesCount() }}</span></div>
+        </div>
+      </div>
     </div>
 
   </div>

@@ -63,7 +63,6 @@
 }
 .stats-row.stats-single{
   display: grid;
-  grid-template-columns: repeat(2,242px) auto;
   align-items: center;
   gap: 12px;
   margin-bottom: 24px;
@@ -77,14 +76,86 @@
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 32px;
-  padding: 15px;
+  padding: 0;
+  &__wrapper{
+    //border: 3px dashed var(--border);
+    &-header{
+      background: var(--accent);
+    }
+  }
+  &__header{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    list-style: none;
+    padding-left:0;
+    margin: 0;
+    &-item{
+      border-right: 3px dashed var(--border);
+      font-size: 18px;
+      line-height: 150%;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 10px 16px;
+      &:last-child{
+        border-right: none;
+      }
+    }
+  }
+  &__footer{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    &-item{
+      padding: 10px 16px;
+    }
+    &-label{
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+  }
   &__list{
     display: grid;
-    padding-left: 18px;
-    grid-gap: 10px;
+    padding-left: 0;
     margin: 0;
+    overflow: auto;
+    list-style: none;
+    height: 400px;
+    padding-inline-start: 0;
+    &::-webkit-scrollbar {
+      width: 1px;
+    }
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 8px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 8px;
+    }
+    &-item{
+      display: grid;
+      grid-template-columns: repeat(3, 425px);
+      align-items: stretch;
+      border-bottom: 3px dashed var(--border);
+      &:last-child{
+        border-bottom: none;
+      }
+      &-wrap{
+        display: flex;
+        align-items: center;
+        padding: 10px 16px;
+        border-right: 3px dashed var(--border);
+        &:last-child{
+          border-right: none;
+        }
+      }
+    }
     &-link{
       color: var(--text);
+      font-size: 16px;
+      line-height: 150%;
+      word-break: break-word;
       &:visited{
         color: #551b61;
       }

@@ -1,8 +1,8 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { URL } from 'url';
-
-type ProgressCallback = (processedCount: number, queueLength: number) => void;
+import type { ProgressCallback } from "./interface/types.js";
+import type {RawImageFound} from "./interface/interface.js";
 
 const getLinksFromSitemap = async (baseUrlObj: URL): Promise<string[]> => {
     const sitemapUrl = `${baseUrlObj.origin}/sitemap.xml`;
@@ -12,13 +12,11 @@ const getLinksFromSitemap = async (baseUrlObj: URL): Promise<string[]> => {
         console.log(`[Sitemap] Проверяем наличие карты сайта: ${sitemapUrl}`);
         const { data: xml } = await axios.get(sitemapUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MyAngularCrawler/2.0)' },
-            timeout: 5000 // Таймаут 5 секунд на получение карты сайта
+            timeout: 5000
         });
 
-        // Загружаем XML в cheerio с флагом xml: true для корректного парсинга XML-структуры
         const $ = cheerio.load(xml, { xml: true });
 
-        // В sitemap.xml все адреса страниц хранятся внутри тегов <loc>
         $('loc').each((_, element) => {
             const url = $(element).text().trim();
             if (url) {
@@ -34,31 +32,25 @@ const getLinksFromSitemap = async (baseUrlObj: URL): Promise<string[]> => {
     return sitemapLinks;
 }
 
-
-export const crawlSite = async (startUrl: string, onProgress?: ProgressCallback): Promise<string[]> => {
+// Изменили возвращаемый тип с Promise<string[]> на Promise<RawImageFound[]>
+export const crawlSite = async (startUrl: string, onProgress?: ProgressCallback): Promise<RawImageFound[]> => {
     const visitedUrls = new Set<string>();
-    const foundImages = new Set<string>();
+
+    // Массив для хранения итоговых объектов картинок
+    const foundImages: RawImageFound[] = [];
+    // Set для дедупликации (чтобы не дублировать одинаковые картинки с одинаковым классом на одной странице)
+    const uniqueImagesTracker = new Set<string>();
 
     const startUrlObj: URL = new URL(startUrl);
     const baseDomain: string = startUrlObj.hostname;
 
-    // ШАГ 1: Сканируем карту сайта sitemap.xml перед запуском основного цикла
     const sitemapLinks = await getLinksFromSitemap(startUrlObj);
-
-    // Флаг, определяющий, используем ли мы карту сайта.
-    // Если ссылки в ней нашлись — значит мы работаем в режиме карты сайта, рекурсия не нужна.
     const isSitemapMode = sitemapLinks.length > 0;
-
-    // Инициализируем очередь:
-    // Если sitemap найден — закидываем туда все ссылки из карты сайта.
-    // Если sitemap не найден — кладем в очередь только стартовый URL для рекурсивного обхода.
     const queue: string[] = isSitemapMode ? sitemapLinks : [startUrl];
 
     const CONCURRENCY_LIMIT = 5;
 
-    // Главный цикл обхода очереди
     while (queue.length > 0) {
-
         const chunk = queue.splice(0, CONCURRENCY_LIMIT);
         const urlsToProcess = chunk.filter(url => !visitedUrls.has(url));
 
@@ -77,13 +69,40 @@ export const crawlSite = async (startUrl: string, onProgress?: ProgressCallback)
 
                 const $ = cheerio.load(html);
 
-                // 1. Сбор картинок (выполняется всегда, независимо от режима обхода)
+                // 1. Сбор картинок с расширенным анализом DOM-структуры
                 $('img').each((_, element) => {
-                    const src: string | undefined = $(element).attr('src');
+                    const imgNode = $(element);
+                    const src: string | undefined = imgNode.attr('src');
+
                     if (src) {
                         try {
                             const absoluteImgURl = new URL(src, currentUrl).href;
-                            foundImages.add(absoluteImgURl);
+
+                            // ХИТРОСТЬ: Проверяем ТОЛЬКО URL картинки.
+                            // Если мы её уже видели на другой странице — полностью игнорируем.
+                            if (!uniqueImagesTracker.has(absoluteImgURl)) {
+                                uniqueImagesTracker.add(absoluteImgURl);
+
+                                // Поиск класса (выполняется только ОДИН раз для первой найденной картинки)
+                                let finalClass = imgNode.attr('class') || '';
+
+                                if (!finalClass.trim()) {
+                                    const parentWithClass = imgNode.parents('[class]').first();
+                                    if (parentWithClass.length > 0) {
+                                        finalClass = parentWithClass.attr('class') || '';
+                                    }
+                                }
+
+                                finalClass = finalClass.trim().replace(/\s+/g, ' ');
+                                if (!finalClass) finalClass = 'no-class';
+
+                                // Добавляем в массив
+                                foundImages.push({
+                                    url: absoluteImgURl,
+                                    pageUrl: currentUrl, // Это будет ПЕРВАЯ страница, где она нашлась
+                                    className: finalClass
+                                });
+                            }
                         } catch (e) {}
                     }
                 });
@@ -124,7 +143,7 @@ export const crawlSite = async (startUrl: string, onProgress?: ProgressCallback)
 
     console.log(`\n[Crawl] Полный обход сайта завершен!`);
     console.log(`[Crawl] Всего страниц исследовано: ${visitedUrls.size}`);
-    console.log(`[Crawl] Всего уникальных картинок найдено: ${foundImages.size}\n`);
+    console.log(`[Crawl] Всего уникальных картинок найдено: ${foundImages.length}\n`);
 
-    return Array.from(foundImages);
+    return foundImages;
 }

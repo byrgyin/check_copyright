@@ -1,0 +1,1 @@
+export type ProgressCallback = (processedCount: number, queueLength: number) => void;
