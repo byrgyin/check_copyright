@@ -85,7 +85,7 @@
   }
   &__header{
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     list-style: none;
     padding-left:0;
     margin: 0;
@@ -103,7 +103,7 @@
   }
   &__footer{
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     &-item{
       padding: 10px 16px;
     }
@@ -135,7 +135,7 @@
     }
     &-item{
       display: grid;
-      grid-template-columns: repeat(3, 425px);
+      grid-template-columns: repeat(4, 319px);
       align-items: stretch;
       border-bottom: 3px dashed var(--border);
       &:last-child{

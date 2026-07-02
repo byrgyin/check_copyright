@@ -1,7 +1,13 @@
 import { Queue, Worker, Job } from 'bullmq';
+import mongoose from 'mongoose';
+import { ImageModel } from './models/Image.js';
 import { crawlSite } from './crawlSite.js';
-import { checkImageLicense } from './tineyeService.js';
+import { checkImageLicense } from './service/googleVisionService.js';
 
+// Подключаемся к MongoDB (локальный докер-контейнер)
+mongoose.connect('mongodb://localhost:27017/copyright_crawler')
+    .then(() => console.log('[Mongo] Успешно подключено к MongoDB'))
+    .catch(err => console.error('[Mongo] Ошибка подключения:', err.message));
 // 1. Вместо инстанса класса Redis, создаем простой объект конфигурации.
 // Типизируем его как 'any' или вообще не типизируем, чтобы у TS не было вопросов.
 const redisConfig: any = {
@@ -11,9 +17,7 @@ const redisConfig: any = {
 };
 
 // 2. Передаем объект конфигурации в Queue
-export const crawlQueue = new Queue('crawl-tasks', {
-  connection: redisConfig
-});
+export const crawlQueue = new Queue('crawl-tasks', {connection: redisConfig});
 
 // 3. Передаем этот же объект конфигурации в Worker
 export const crawlWorker = new Worker('crawl-tasks', async (job: Job) => {
@@ -39,8 +43,32 @@ export const crawlWorker = new Worker('crawl-tasks', async (job: Job) => {
     const imageInfo = rawImages[i];
     if (!imageInfo) continue;
 
-    const result = await checkImageLicense(imageInfo);
-    checkedImages.push(result);
+    // --- УМНАЯ ЛОГИКА С MONGO ---
+    // 1. Ищем картинку в нашей БД по её URL
+
+    const cachedImage = await ImageModel.findOne({ url: imageInfo.url });
+
+    if(cachedImage){
+      console.log(`[Mongo] Найдено в кэше базы данных: ${imageInfo.url}`);
+      checkedImages.push({
+        url: cachedImage.url,
+        pageUrl: imageInfo.pageUrl, // страницу и класс берем текущие, где она нашлась
+        className: imageInfo.className,
+        totalMatches: cachedImage.totalMatches,
+        isUnique: cachedImage.isUnique,
+        domains: cachedImage.domains
+      });
+    } else {
+      console.log(`[Google Cloud Vison API] Новая картинка. Запрос к API: ${imageInfo.url}`);
+
+      const result = await checkImageLicense(imageInfo);
+      checkedImages.push(result);
+
+      try {
+        await ImageModel.create(result)
+      } catch (dbErr) {}
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
 
     await job.updateProgress({
       type: 'tineye_progress',
@@ -48,13 +76,10 @@ export const crawlWorker = new Worker('crawl-tasks', async (job: Job) => {
       total: rawImages.length
     });
 
-    await new Promise(resolve => setTimeout(resolve, 500));
   }
 
   return { images: checkedImages };
-}, {
-  connection: redisConfig // И сюда тоже отдаем объект настроек
-});
+}, {connection: redisConfig});
 
 crawlWorker.on('completed', (job) => {
   console.log(`[Worker] Задача #${job.id} успешно выполнена!`);

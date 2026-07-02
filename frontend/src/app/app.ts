@@ -13,16 +13,23 @@ import { ImageResult } from './interface/interface';
 })
 export class App {
   protected readonly host = signal<string>('');
-  // protected readonly crawlerService = inject(Crawl);
   protected readonly images = signal<ImageResult[]>([]);
   protected readonly statusText = signal<string>('Ready');
   protected readonly progressPercent = signal<number>(0);
   protected readonly isCrawling = signal<boolean>(false);
+  protected readonly isSuspended = signal<boolean>(false);
   protected readonly suspectImagesCount = computed(() => {
     return this.images().filter((img) => !img.isUnique).length;
   });
 
-  // Сигналы для второго прогресс-бара TinEye
+  filteredImages = computed(() => {
+    if (this.isSuspended()) {
+      return this.images().filter((item) => !item.isUnique);
+    }
+    return this.images();
+  });
+
+
   protected readonly isCheckingTinEye = signal<boolean>(false);
   protected readonly tineyeProgressPercent = signal<number>(0);
   protected readonly tineyeStatusText = signal<string>('Ожидание очереди...');
@@ -31,17 +38,21 @@ export class App {
     url: new FormControl<string | null>(null, Validators.required),
   });
 
+  showSuspect(): void {
+    this.isSuspended.update((value) => !value);
+  }
+
   downLoadCsv(): void {
     if (this.images().length === 0) {
       alert('No images available');
       return;
     } else {
       // ИСПРАВЛЕНО: Шапка CSV теперь содержит больше полезных данных для отчета
-      let csvContent = 'Image URL;Page;Class Html\n';
+      let csvContent = 'Url Image;PAGE;CLASS HTNL; STATUS\n';
 
       this.images().forEach((img) => {
-        const status = img.isUnique ? 'Unique' : 'Plagiarism Detected';
-        csvContent += `"${img.url}";"${img.pageUrl}";"${img.className}"\n`;
+        const status = img.isUnique ? '✅ Safe' : '⚠️ Suspect';
+        csvContent += `"${img.url}";"${img.pageUrl}";"${img.className}";"${status}"\n`;
       });
 
       const blob = new Blob([new Uint8Array([0xef, 0xbb, 0xbf]), csvContent], {

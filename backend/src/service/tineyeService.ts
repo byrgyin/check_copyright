@@ -1,6 +1,6 @@
 // Используем require, так как официальная библиотека написана на CommonJS
 import TinEye from 'tineye-api';
-import type {ImageResult} from "./interface/interface.js";
+import type {ImageResult} from "../interface/interface.js";
 
 // Используем тестовый ключ из обновленной документации (v2.0.0+)
 const apiKey = "6mm60lsCNIBqFwOWjJqA80QZHh9BMwc-ber4u=t^";

@@ -68,15 +68,19 @@
             <li class="table-wrap__header-item">Url Image</li>
             <li class="table-wrap__header-item">Page</li>
             <li class="table-wrap__header-item">Class Html</li>
+            <li class="table-wrap__header-item">Status - <button
+              class="button"
+              (click)="showSuspect()">Show {{isSuspended() ? 'all' :'suspect'}} images</button></li>
           </ul>
         </div>
         @if (images().length > 0) {
           <ul class="table-wrap__list">
-            @for (item of images(); track item.url) {
+            @for (item of filteredImages(); track item.url) {
               <li class="table-wrap__list-item">
                 <div class="table-wrap__list-item-wrap"><a class="table-wrap__list-link" target="_blank" [href]="item.url">{{item.url}}</a></div>
                 <div class="table-wrap__list-item-wrap"><a class="table-wrap__list-link" target="_blank" [href]="item.pageUrl">{{item.pageUrl}}</a></div>
                 <div class="table-wrap__list-item-wrap"><span class="table-wrap__list-link" [class.text-muted]="item.className === 'no-class'">{{ item.className }}</span></div>
+                <div class="table-wrap__list-item-wrap"><span class="table-wrap__list-link" >{{ item.isUnique ? '✅ Safe' : '⚠️ Suspect' }}</span></div>
               </li>
             }
           </ul>
